@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Review Sentiment Analyzer</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Amazon Review Analyzer</h1>
+        <input type="text" id="urlInput" placeholder="Enter product URL...">
+        <button onclick="analyze()">Analyze Reviews</button>
+        <p id="status"></p>
+        <div id="results"></div>
+    </div>
+
+    <h2>Results:</h2>
+    <div id="summary"></div>
+    <div id="top-comments"></div>
+
+    <div id="highlighted-comments">
+        <div class="impact-card positive">
+            <h4>😊 Most Positive Comment</h4>
+            <p id="most-positive"></p>
+        </div>
+        <div class="impact-card negative">
+            <h4>😠 Most Negative Comment</h4>
+            <p id="most-negative"></p>
+        </div>
+    </div>
+
+    <button onclick="downloadPDF()">📄 Download Analysis</button>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+
+    <script>
+        let percentPos = 0;
+        let percentNeg = 0;
+        let mostPos = { text: "" };
+        let mostNeg = { text: "" };
+
+        async function analyze() {
+            const status = document.getElementById("status");
+            status.textContent = "Cargando reseñas y analizando...";
+
+            try {
+                const url = document.getElementById("urlInput").value;
+                const response = await fetch("/analyze", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: url })
+                });
+
+                if (!response.ok) {
+                    throw new Error('Error en la solicitud');
+                }
+
+                const result = await response.json();
+                const data = result.reviews || [];
+
+                if (data.length > 0) {
+                    displayResults(data, result.positive_percentage, result.negative_percentage);
+                } else {
+                    status.textContent = "No se encontraron datos para analizar.";
+                }
+            } catch (error) {
+                status.textContent = "Hubo un error al procesar la solicitud.";
+                console.error(error);
+            }
+        }
+
+        function displayResults(data, posPerc, negPerc) {
+            const resultDiv = document.getElementById("results");
+
+            percentPos = posPerc;
+            percentNeg = negPerc;
+
+            document.getElementById("summary").innerHTML = `
+                <h3>📊 Summary</h3>
+                <p><strong>Positive:</strong> ${percentPos}%</p>
+                <p><strong>Negative:</strong> ${percentNeg}%</p>
+                <div style="width: 100%; height: 20px; background: #ddd; margin-bottom: 20px;">
+                    <div style="width: ${percentPos}%; background: green; height: 100%; float: left;"></div>
+                    <div style="width: ${percentNeg}%; background: red; height: 100%; float: left;"></div>
+                </div>
+            `;
+
+            const positive = data.filter(r => r.sentiment === "positive");
+            const negative = data.filter(r => r.sentiment === "negative");
+
+            const getMostImpactful = (arr) =>
+                arr.reduce((a, b) => (b.text.length > a.text.length ? b : a), { text: "" });
+
+            mostPos = getMostImpactful(positive);
+            mostNeg = getMostImpactful(negative);
+
+            document.getElementById("top-comments").innerHTML = `
+                <h3>🔥 Most Impactful Comments</h3>
+                <p style="color:green;"><strong>😊 Positive:</strong> ${mostPos.text}</p>
+                <p style="color:red;"><strong>😠 Negative:</strong> ${mostNeg.text}</p>
+            `;
+
+            document.getElementById("most-positive").innerText = mostPos.text;
+            document.getElementById("most-negative").innerText = mostNeg.text;
+
+            document.getElementById("status").textContent = "¡Análisis completo!";
+        }
+
+        function downloadPDF() {
+        const { jsPDF } = window.jspdf;  // Cargar correctamente jsPDF
+        const doc = new jsPDF();// ya no hace falta destructurar
+
+        doc.setFontSize(16);
+        doc.text("Review Sentiment Analysis", 20, 20);
+
+        doc.setFontSize(12);
+        doc.text(`✅ Positive: ${percentPos}%`, 20, 40);
+        doc.text(`❌ Negative: ${percentNeg}%`, 20, 50);
+
+        doc.text("🔥 Most Impactful Comments", 20, 80);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("😊 Positive:", 20, 95);
+        doc.setFont("helvetica", "normal");
+        doc.text(doc.splitTextToSize(mostPos.text, 170), 20, 102);
+
+        doc.setFont("helvetica", "bold");
+        doc.text("😠 Negative:", 20, 130);
+        doc.setFont("helvetica", "normal");
+        doc.text(doc.splitTextToSize(mostNeg.text, 170), 20, 137); // ← aquí estaba el error
+
+        doc.save("review_analysis.pdf");
+    }
+</script>
+</body>
+</html>
