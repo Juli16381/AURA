@@ -29,10 +29,13 @@
         </div>
     </div>
 
+    <!-- NUEVA SECCIÓN DE RECOMENDACIONES -->
+    <h2>🛍️ Recomendaciones similares</h2>
+    <div id="recommendations"></div>
+
     <button onclick="downloadPDF()">📄 Download Analysis</button>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
 
     <script>
         let percentPos = 0;
@@ -61,6 +64,7 @@
 
                 if (data.length > 0) {
                     displayResults(data, result.positive_percentage, result.negative_percentage);
+                    getRecommendations(url); // ← NUEVO: obtener productos similares
                 } else {
                     status.textContent = "No se encontraron datos para analizar.";
                 }
@@ -108,30 +112,72 @@
         }
 
         function downloadPDF() {
-        const { jsPDF } = window.jspdf;  // Cargar correctamente jsPDF
-        const doc = new jsPDF();// ya no hace falta destructurar
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
 
-        doc.setFontSize(16);
-        doc.text("Review Sentiment Analysis", 20, 20);
+            doc.setFontSize(16);
+            doc.text("Review Sentiment Analysis", 20, 20);
 
-        doc.setFontSize(12);
-        doc.text(`✅ Positive: ${percentPos}%`, 20, 40);
-        doc.text(`❌ Negative: ${percentNeg}%`, 20, 50);
+            doc.setFontSize(12);
+            doc.text(`✅ Positive: ${percentPos}%`, 20, 40);
+            doc.text(`❌ Negative: ${percentNeg}%`, 20, 50);
 
-        doc.text("🔥 Most Impactful Comments", 20, 80);
+            doc.text("🔥 Most Impactful Comments", 20, 80);
 
-        doc.setFont("helvetica", "bold");
-        doc.text("😊 Positive:", 20, 95);
-        doc.setFont("helvetica", "normal");
-        doc.text(doc.splitTextToSize(mostPos.text, 170), 20, 102);
+            doc.setFont("helvetica", "bold");
+            doc.text("😊 Positive:", 20, 95);
+            doc.setFont("helvetica", "normal");
+            doc.text(doc.splitTextToSize(mostPos.text, 170), 20, 102);
 
-        doc.setFont("helvetica", "bold");
-        doc.text("😠 Negative:", 20, 130);
-        doc.setFont("helvetica", "normal");
-        doc.text(doc.splitTextToSize(mostNeg.text, 170), 20, 137); // ← aquí estaba el error
+            doc.setFont("helvetica", "bold");
+            doc.text("😠 Negative:", 20, 130);
+            doc.setFont("helvetica", "normal");
+            doc.text(doc.splitTextToSize(mostNeg.text, 170), 20, 137);
 
-        doc.save("review_analysis.pdf");
-    }
-</script>
+            doc.save("review_analysis.pdf");
+        }
+
+        // NUEVO: función para obtener y mostrar recomendaciones similares
+        async function getRecommendations(url) {
+            const recDiv = document.getElementById("recommendations");
+            recDiv.innerHTML = "<p>Cargando recomendaciones...</p>";
+
+            try {
+                const response = await fetch("/recommendations", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ url: url })
+                });
+
+                if (!response.ok) {
+                    recDiv.innerHTML = "<p>No se pudieron obtener recomendaciones.</p>";
+                    return;
+                }
+
+                const recommendations = await response.json();
+
+                if (recommendations.length === 0) {
+                    recDiv.innerHTML = "<p>No se encontraron productos similares.</p>";
+                    return;
+                }
+
+                recDiv.innerHTML = `
+                    <ul style="list-style:none; padding: 0;">
+                        ${recommendations.map(prod => `
+                            <li style="margin-bottom: 15px;">
+                                <strong>${prod.title}</strong><br>
+                                Marca: ${prod.brand}<br>
+                                Similitud: ${(prod.sim_score * 100).toFixed(1)}%<br>
+                                <a href="${prod.url}" target="_blank" style="color: blue;">Ver en Amazon</a>
+                            </li>
+                        `).join('')}
+                    </ul>
+                `;
+            } catch (err) {
+                recDiv.innerHTML = "<p>Error al mostrar recomendaciones.</p>";
+                console.error(err);
+            }
+        }
+    </script>
 </body>
 </html>

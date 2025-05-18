@@ -2,12 +2,13 @@ import os
 import joblib
 import re
 
-# Ruta al modelo
-modelo_path = os.path.join("modelos", "modelo_naive_bayesULTIMO.pkl")
-vectorizer_path = os.path.join("modelos", "vectorizer_tfidfULTIMO.pkl")
-vectorizer = joblib.load(vectorizer_path)
+# Asegura que la ruta sea relativa al archivo actual, no al directorio de ejecución
+BASE_DIR = os.path.dirname(__file__)
+modelo_path = os.path.join(BASE_DIR, "modelos", "modelo_naive_bayesULTIMO.pkl")
+vectorizer_path = os.path.join(BASE_DIR, "modelos", "vectorizer_tfidfULTIMO.pkl")
 
-# Carga del modelo
+# Carga del modelo y vectorizador
+vectorizer = joblib.load(vectorizer_path)
 modelo = joblib.load(modelo_path)
 
 # Si tu modelo usa un vectorizador, también debes cargarlo (por ejemplo: CountVectorizer o TfidfVectorizer)
